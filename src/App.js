@@ -1,46 +1,86 @@
 import { Canvas } from '@react-three/fiber'
-import { MeshReflectorMaterial } from '@react-three/drei'
-import { Physics, usePlane } from '@react-three/cannon'
-import { Cursor } from './helpers/Drag'
-import { Guy } from './components/Guy'
-import { Mug, Chair, Table, Lamp } from './components/Furniture'
+import { Box, Environment, OrbitControls, ContactShadows, Sphere } from '@react-three/drei'
+import { Physics, RigidBody, useSphericalJoint, MeshCollider, CuboidCollider } from '@react-three/rapier'
+import { Suspense, useRef } from 'react'
+import { Rope } from './components/Rope'
+import { StickFigure } from './components/StickFigure'
+import './styles.css'
 
-export default function App() {
+function HangingThing({ position }) {
+  const anchor = useRef(null)
+  const box = useRef(null)
+
+  useSphericalJoint(anchor, box, [
+    [0, 0, 0],
+    [0, 2, 0]
+  ])
+
   return (
-    <Canvas dpr={[1, 2]} shadows camera={{ position: [-40, 40, 40], fov: 25, near: 1, far: 100 }}>
-      <color attach="background" args={['#171720']} />
-      <fog attach="fog" args={['#171720', 60, 90]} />
-      <ambientLight intensity={0.2} />
-      <pointLight position={[-20, -5, -20]} color="red" />
-      <Physics allowSleep={false} iterations={15} gravity={[0, -200, 0]}>
-        <Cursor />
-        <Guy rotation={[-Math.PI / 3, 0, 0]} />
-        <Floor position={[0, -5, 0]} rotation={[-Math.PI / 2, 0, 0]} />
-        <Chair position={[0, 0, -2.52]} />
-        <Table position={[8, 0, 0]} />
-        <Mug position={[8, 3, 0]} />
-        <Lamp position={[0, 15, 0]} />
-      </Physics>
-    </Canvas>
+    <group position={position}>
+      {/* Anchor point */}
+      <RigidBody ref={anchor} type="fixed" />
+
+      {/* Hanging box */}
+      <RigidBody ref={box} position={[0, -2, 0]}>
+        <Box args={[0.2, 4, 0.2]}>
+          <meshPhysicalMaterial />
+        </Box>
+        <MeshCollider type="ball">
+          <Sphere args={[0.5]} position={[0, -2, 0]}>
+            <meshPhysicalMaterial />
+          </Sphere>
+        </MeshCollider>
+      </RigidBody>
+    </group>
   )
 }
 
-function Floor(props) {
-  const [ref] = usePlane(() => ({ type: 'Static', ...props }))
+function Scene() {
   return (
-    <mesh ref={ref} receiveShadow>
-      <planeGeometry args={[100, 100]} />
-      <MeshReflectorMaterial
-        color="#878790"
-        blur={[400, 400]}
-        resolution={1024}
-        mixBlur={1}
-        mixStrength={3}
-        depthScale={1}
-        minDepthThreshold={0.85}
-        metalness={0}
-        roughness={1}
-      />
-    </mesh>
+    <group>
+      <HangingThing position={[2, 3.5, 0]} />
+      <HangingThing position={[5, 3.5, 0]} />
+      <HangingThing position={[7, 3.5, 0]} />
+
+      <Rope length={20} />
+
+      {/* Start stick figure higher up */}
+      <StickFigure position={[-3, 8, 0]} />
+
+      {/* Extended floor to catch the stick figure */}
+      <CuboidCollider position={[0, -2.5, 0]} args={[20, 1, 10]} />
+
+      <ContactShadows scale={20} blur={0.4} opacity={0.2} position={[-0, -1.5, 0]} />
+
+      <OrbitControls />
+    </group>
+  )
+}
+
+export default function App() {
+  return (
+    <div className="App">
+      <Suspense fallback={null}>
+        <Canvas
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh'
+          }}
+          shadows
+          camera={{
+            position: [-8, 4, 8]
+          }}>
+          <Environment preset="studio" />
+          <fog attach="fog" args={['#000', 2, 100]} />
+
+          <Physics debug>
+            <Scene />
+          </Physics>
+        </Canvas>
+      </Suspense>
+    </div>
   )
 }
