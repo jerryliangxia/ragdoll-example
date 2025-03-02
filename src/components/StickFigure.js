@@ -1,10 +1,10 @@
 import { useRef } from 'react'
-import { RigidBody, useSphericalJoint, CuboidCollider } from '@react-three/rapier'
+import { RigidBody, useSphericalJoint, usePrismaticJoint, useFixedJoint, CuboidCollider } from '@react-three/rapier'
 import { Box, useGLTF, Text } from '@react-three/drei'
 import { Vector3 } from 'three'
 import { useControls } from 'leva'
 
-const typeRigidBody = 'fixed'
+const typeRigidBody = 'dynamic'
 const gravityScale = 0.1
 
 function BoneLabel({ text, position }) {
@@ -20,20 +20,12 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
 
   // Dimensions controls
   const dimensions = useControls('Dimensions', {
-    rootDimensions: { value: [0.049009, 0.980182, 0.049009], step: 0.01 },
+    rootDimensions: { value: [0.15, 0.4, 0.15], step: 0.01 },
     headDimensions: { value: [0.073831, 0.73831, 0.073831], step: 0.01 },
-    armDimensions: { value: [0.020324, 0.306184, 0.020324], step: 0.01 },
-    legDimensions: { value: [0.033359, 0.310378, 0.033359], step: 0.01 }
-  })
-
-  // Head/Tail Position controls
-  const anchorPositions = useControls('Anchor Points', {
-    rootHeadPosition: { value: [0, 0.386498, 0], step: 0.01 },
-    rootTailPosition: { value: [0, 1.36668, 0], step: 0.01 },
-    leglHeadPosition: { value: [0.359812, 0.571024, -0.013526], step: 0.01 },
-    legrHeadPosition: { value: [-0.359812, 0.571024, -0.013526], step: 0.01 },
-    armlHeadPosition: { value: [0.633096, 1.17059, 0.137221], step: 0.01 },
-    armrHeadPosition: { value: [-0.633096, 1.17059, 0.137221], step: 0.01 }
+    armDimensions: { value: [0.2, 0.2, 0.2], step: 0.01 },
+    legDimensions: { value: [0.2, 0.2, 0.2], step: 0.01 },
+    forearmDimensions: { value: [0.1, 0.2, 0.2], step: 0.01 },
+    handDimensions: { value: [0.1, 0.1, 0.1], step: 0.01 }
   })
 
   // Body Position controls
@@ -43,7 +35,12 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
     armlPosition: { value: [0.785971, 1.16282, 0.139699], step: 0.01 },
     armrPosition: { value: [-0.785971, 1.16282, 0.139699], step: 0.01 },
     leglPosition: { value: [0.387086, 0.419553, 0.006382], step: 0.01 },
-    legrPosition: { value: [-0.387086, 0.419553, 0.006382], step: 0.01 }
+    legrPosition: { value: [-0.387086, 0.419553, 0.006382], step: 0.01 },
+    // others
+    forearmlPosition: { value: [1.1172275, 1.150095, 0.1396985], step: 0.01 },
+    forearmrPosition: { value: [-1.1172275, 1.150095, 0.1396985], step: 0.01 },
+    handlPosition: { value: [1.482162, 1.123177, 0.085032], step: 0.01 },
+    handrPosition: { value: [-1.482162, 1.123177, 0.085032], step: 0.01 }
   })
 
   // Refs for all major body parts
@@ -53,26 +50,54 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
   const armR = useRef(null)
   const legL = useRef(null)
   const legR = useRef(null)
+  const forearmL = useRef(null)
+  const forearmR = useRef(null)
+  const handL = useRef(null)
+  const handR = useRef(null)
 
   // Calculate relative positions
   const getRelativePosition = (pos1, pos2) => [(pos1[0] - pos2[0]) / 2, (pos1[1] - pos2[1]) / 2, (pos1[2] - pos2[2]) / 2]
 
   // useSphericalJoint(A,B,(B,A),(A,B))
   useSphericalJoint(root, legL, [
-    getRelativePosition(anchorPositions.leglHeadPosition, anchorPositions.rootTailPosition),
-    getRelativePosition(anchorPositions.rootTailPosition, anchorPositions.leglHeadPosition)
+    getRelativePosition(bodyPositions.leglPosition, bodyPositions.rootPosition),
+    getRelativePosition(bodyPositions.rootPosition, bodyPositions.leglPosition)
   ])
   useSphericalJoint(root, legR, [
-    getRelativePosition(anchorPositions.legrHeadPosition, anchorPositions.rootTailPosition),
-    getRelativePosition(anchorPositions.rootTailPosition, anchorPositions.legrHeadPosition)
+    getRelativePosition(bodyPositions.legrPosition, bodyPositions.rootPosition),
+    getRelativePosition(bodyPositions.rootPosition, bodyPositions.legrPosition)
   ])
   useSphericalJoint(root, armL, [
-    getRelativePosition(anchorPositions.armlHeadPosition, anchorPositions.rootTailPosition),
-    getRelativePosition(anchorPositions.rootTailPosition, anchorPositions.armlHeadPosition)
+    getRelativePosition(bodyPositions.armlPosition, bodyPositions.rootPosition),
+    getRelativePosition(bodyPositions.rootPosition, bodyPositions.armlPosition)
   ])
   useSphericalJoint(root, armR, [
-    getRelativePosition(anchorPositions.armrHeadPosition, anchorPositions.rootTailPosition),
-    getRelativePosition(anchorPositions.rootTailPosition, anchorPositions.armrHeadPosition)
+    getRelativePosition(bodyPositions.armrPosition, bodyPositions.rootPosition),
+    getRelativePosition(bodyPositions.rootPosition, bodyPositions.armrPosition)
+  ])
+  useFixedJoint(armL, forearmL, [
+    getRelativePosition(bodyPositions.forearmlPosition, bodyPositions.armlPosition),
+    [0, 0, 0, 1],
+    getRelativePosition(bodyPositions.armlPosition, bodyPositions.forearmlPosition),
+    [0, 0, 0, 1]
+  ])
+  useFixedJoint(armR, forearmR, [
+    getRelativePosition(bodyPositions.forearmrPosition, bodyPositions.armrPosition),
+    [0, 0, 0, 1],
+    getRelativePosition(bodyPositions.armrPosition, bodyPositions.forearmrPosition),
+    [0, 0, 0, 1]
+  ])
+  useFixedJoint(forearmL, handL, [
+    getRelativePosition(bodyPositions.handlPosition, bodyPositions.forearmlPosition),
+    [0, 0, 0, 1],
+    getRelativePosition(bodyPositions.forearmlPosition, bodyPositions.handlPosition),
+    [0, 0, 0, 1]
+  ])
+  useFixedJoint(forearmR, handR, [
+    getRelativePosition(bodyPositions.handrPosition, bodyPositions.forearmrPosition),
+    [0, 0, 0, 1],
+    getRelativePosition(bodyPositions.forearmrPosition, bodyPositions.handrPosition),
+    [0, 0, 0, 1]
   ])
   // useSphericalJoint(root, head, [
   //   getRelativePosition(anchorPositions.rootTailPosition, anchorPositions.rootTailPosition),
@@ -164,8 +189,60 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
         <primitive object={nodes.legr} />
       </RigidBody>
 
+      {/* Left Forearm */}
+      <RigidBody
+        ref={forearmL}
+        gravityScale={gravityScale}
+        position={bodyPositions.forearmlPosition}
+        type={typeRigidBody}
+        linearDamping={2}
+        angularDamping={3}
+        friction={1}>
+        <CuboidCollider args={dimensions.forearmDimensions} />
+        <primitive object={nodes.forearml} />
+      </RigidBody>
+
+      {/* Right Forearm */}
+      <RigidBody
+        ref={forearmR}
+        gravityScale={gravityScale}
+        position={bodyPositions.forearmrPosition}
+        type={typeRigidBody}
+        linearDamping={2}
+        angularDamping={3}
+        friction={1}>
+        <CuboidCollider args={dimensions.forearmDimensions} />
+        <primitive object={nodes.forearmr} />
+      </RigidBody>
+
+      {/* Left Hand */}
+      <RigidBody
+        ref={handL}
+        gravityScale={gravityScale}
+        position={bodyPositions.handlPosition}
+        type={typeRigidBody}
+        linearDamping={2}
+        angularDamping={3}
+        friction={1}>
+        <CuboidCollider args={dimensions.handDimensions} />
+        <primitive object={nodes.handl} />
+      </RigidBody>
+
+      {/* Right Hand */}
+      <RigidBody
+        ref={handR}
+        gravityScale={gravityScale}
+        position={bodyPositions.handrPosition}
+        type={typeRigidBody}
+        linearDamping={2}
+        angularDamping={3}
+        friction={1}>
+        <CuboidCollider args={dimensions.handDimensions} />
+        <primitive object={nodes.handr} />
+      </RigidBody>
+
       {/* Main mesh */}
-      <primitive object={nodes.Scene} scale={[2, 2, 2]} />
+      {/* <primitive object={nodes.Scene} scale={[2, 2, 2]} /> */}
     </group>
   )
 }
