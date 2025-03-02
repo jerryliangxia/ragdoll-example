@@ -45,7 +45,7 @@ function Scene() {
       <Rope length={20} />
 
       {/* Start stick figure higher up */}
-      <StickFigure position={[-3, 8, 0]} />
+      <StickFigure position={[0, 2, 0]} />
 
       {/* Extended floor to catch the stick figure */}
       <CuboidCollider position={[0, -2.5, 0]} args={[20, 1, 10]} />
