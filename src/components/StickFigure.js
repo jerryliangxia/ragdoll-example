@@ -4,8 +4,8 @@ import { Box, useGLTF, Text } from '@react-three/drei'
 import { Vector3 } from 'three'
 import { useControls } from 'leva'
 
-const typeRigidBody = 'fixed'
-const gravityScale = 0.1
+const typeRigidBody = 'dynamic'
+const gravityScale = 1
 
 function BoneLabel({ text, position }) {
   return (
@@ -18,24 +18,29 @@ function BoneLabel({ text, position }) {
 export function StickFigure({ position = [0, 0, 0], debug = true }) {
   const { nodes, materials } = useGLTF('/pepe.glb')
 
+  // Disable frustum culling for all objects in the model
+  nodes.Scene.traverse((object) => {
+    object.frustumCulled = false
+  })
+
   // Dimensions controls
   const dimensions = useControls('Dimensions', {
-    rootDimensions: { value: [0.15, 0.4, 0.15], step: 0.01 },
+    rootDimensions: { value: [0.25, 0.25, 0.25], step: 0.01 },
     headDimensions: { value: [0.073831, 0.73831, 0.073831], step: 0.01 },
-    armDimensions: { value: [0.2, 0.2, 0.2], step: 0.01 },
+    armDimensions: { value: [0.1, 0.1, 0.1], step: 0.01 },
     legDimensions: { value: [0.2, 0.2, 0.2], step: 0.01 },
-    forearmDimensions: { value: [0.1, 0.2, 0.2], step: 0.01 },
+    forearmDimensions: { value: [0.1, 0.1, 0.1], step: 0.01 },
     handDimensions: { value: [0.1, 0.1, 0.1], step: 0.01 }
   })
 
   // Body Position controls
   const bodyPositions = useControls('Body Positions', {
-    rootPosition: { value: [0, 0, 0], step: 0.01 },
+    rootPosition: { value: [0, 1, 0], step: 0.01 },
     headPosition: { value: [0, 0.859261, 0], step: 0.01 },
-    armlPosition: { value: [0, 0.373411, 0], step: 0.01 },
-    armrPosition: { value: [0, 0.373411, 0], step: 0.01 },
-    leglPosition: { value: [0, 0.373411, 0], step: 0.01 },
-    legrPosition: { value: [0, 0.373411, 0], step: 0.01 },
+    armlPosition: { value: [0.34, 1.13, 0], step: 0.01 },
+    armrPosition: { value: [-0.34, 1.13, 0], step: 0.01 },
+    leglPosition: { value: [0.25, 0.25, 0], step: 0.01 },
+    legrPosition: { value: [-0.25, 0.25, 0], step: 0.01 },
     // others
     forearmlPosition: { value: [0.65, 1.123411, -0.16], step: 0.01 },
     forearmrPosition: { value: [-0.65, 1.123411, -0.16], step: 0.01 },
@@ -43,25 +48,37 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
     handrPosition: { value: [-1.0, 1.123411, -0.2], step: 0.01 }
   })
 
-  // Rotation controls for limbs
+  // Fixed rotations for limbs
+  const fixedRotations = {
+    armlRotation: [0, 0, -90],
+    armrRotation: [0, 0, 90],
+    forearmlRotation: [0, 0, -90],
+    handlRotation: [0, 0, -90],
+    forearmrRotation: [0, 0, 90],
+    handrRotation: [0, 0, 90]
+  }
+
+  // Rotation controls for limbs (for debugging/adjustment only)
   const rotations = useControls('Limb Rotations', {
-    forearmlRotation: { value: [0, 0, -90], step: 0.1 },
-    handlRotation: { value: [0, 0, -90], step: 0.1 },
-    forearmrRotation: { value: [0, 0, 90], step: 0.1 },
-    handrRotation: { value: [0, 0, 90], step: 0.1 }
+    armlRotation: { value: fixedRotations.armlRotation, step: 0.1 },
+    armrRotation: { value: fixedRotations.armrRotation, step: 0.1 },
+    forearmlRotation: { value: fixedRotations.forearmlRotation, step: 0.1 },
+    handlRotation: { value: fixedRotations.handlRotation, step: 0.1 },
+    forearmrRotation: { value: fixedRotations.forearmrRotation, step: 0.1 },
+    handrRotation: { value: fixedRotations.handrRotation, step: 0.1 }
   })
 
   // Offset controls for visual adjustments
   const offsets = useControls('Visual Offsets', {
-    boneOffset: { value: [0, 0, 0], step: 0.01 },
-    armlOffset: { value: [0, 0, 0], step: 0.01 },
-    armrOffset: { value: [0, 0, 0], step: 0.01 },
-    leglOffset: { value: [0, 0, 0], step: 0.01 },
-    legrOffset: { value: [0, 0, 0], step: 0.01 },
-    forearmlOffset: { value: [0, 0, 0], step: 0.01 },
-    forearmrOffset: { value: [0, 0, 0], step: 0.01 },
-    handlOffset: { value: [0, 0, 0], step: 0.01 },
-    handrOffset: { value: [0, 0, 0], step: 0.01 }
+    boneOffset: { value: [0, -1, 0], step: 0.01 },
+    armlOffset: { value: [-0.3, -0.75, 0], step: 0.01 },
+    armrOffset: { value: [0.3, -0.75, 0], step: 0.01 },
+    leglOffset: { value: [-0.25, 0, 0], step: 0.01 },
+    legrOffset: { value: [0.25, 0, 0], step: 0.01 },
+    forearmlOffset: { value: [0.25, -0.27, 0], step: 0.01 },
+    forearmrOffset: { value: [-0.25, -0.27, 0], step: 0.01 },
+    handlOffset: { value: [0.25, -0.3, 0], step: 0.01 },
+    handrOffset: { value: [-0.25, -0.3, 0], step: 0.01 }
   })
 
   // Refs for all major body parts
@@ -171,7 +188,7 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
         friction={1}>
         <CuboidCollider args={dimensions.armDimensions} />
         <group position={offsets.armlOffset}>
-          <primitive object={nodes.arml} />
+          <primitive object={nodes.arml} rotation={fixedRotations.armlRotation.map((r) => (r * Math.PI) / 180)} />
         </group>
       </RigidBody>
 
@@ -186,7 +203,7 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
         friction={1}>
         <CuboidCollider args={dimensions.armDimensions} />
         <group position={offsets.armrOffset}>
-          <primitive object={nodes.armr} />
+          <primitive object={nodes.armr} rotation={fixedRotations.armrRotation.map((r) => (r * Math.PI) / 180)} />
         </group>
       </RigidBody>
 
@@ -225,14 +242,13 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
         ref={forearmL}
         gravityScale={gravityScale}
         position={bodyPositions.forearmlPosition}
-        rotation={rotations.forearmlRotation.map((r) => (r * Math.PI) / 180)}
         type={typeRigidBody}
         linearDamping={2}
         angularDamping={3}
         friction={1}>
         <CuboidCollider args={dimensions.forearmDimensions} />
         <group position={offsets.forearmlOffset}>
-          <primitive object={nodes.forearml} />
+          <primitive object={nodes.forearml} rotation={fixedRotations.forearmlRotation.map((r) => (r * Math.PI) / 180)} />
         </group>
       </RigidBody>
 
@@ -241,14 +257,13 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
         ref={forearmR}
         gravityScale={gravityScale}
         position={bodyPositions.forearmrPosition}
-        rotation={rotations.forearmrRotation.map((r) => (r * Math.PI) / 180)}
         type={typeRigidBody}
         linearDamping={2}
         angularDamping={3}
         friction={1}>
         <CuboidCollider args={dimensions.forearmDimensions} />
         <group position={offsets.forearmrOffset}>
-          <primitive object={nodes.forearmr} />
+          <primitive object={nodes.forearmr} rotation={fixedRotations.forearmrRotation.map((r) => (r * Math.PI) / 180)} />
         </group>
       </RigidBody>
 
@@ -257,14 +272,13 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
         ref={handL}
         gravityScale={gravityScale}
         position={bodyPositions.handlPosition}
-        rotation={rotations.handlRotation.map((r) => (r * Math.PI) / 180)}
         type={typeRigidBody}
         linearDamping={2}
         angularDamping={3}
         friction={1}>
         <CuboidCollider args={dimensions.handDimensions} />
         <group position={offsets.handlOffset}>
-          <primitive object={nodes.handl} />
+          <primitive object={nodes.handl} rotation={fixedRotations.handlRotation.map((r) => (r * Math.PI) / 180)} />
         </group>
       </RigidBody>
 
@@ -273,19 +287,25 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
         ref={handR}
         gravityScale={gravityScale}
         position={bodyPositions.handrPosition}
-        rotation={rotations.handrRotation.map((r) => (r * Math.PI) / 180)}
         type={typeRigidBody}
         linearDamping={2}
         angularDamping={3}
         friction={1}>
         <CuboidCollider args={dimensions.handDimensions} />
         <group position={offsets.handrOffset}>
-          <primitive object={nodes.handr} />
+          <primitive object={nodes.handr} rotation={fixedRotations.handrRotation.map((r) => (r * Math.PI) / 180)} />
         </group>
       </RigidBody>
 
       {/* Main mesh */}
-      {/* <primitive object={nodes.Scene} scale={[2, 2, 2]} /> */}
+      <primitive object={nodes.Scene} scale={[2, 2, 2]} />
+
+      {/* Helper box to make the mesh more visible */}
+      {debug && (
+        <Box args={[0.5, 0.5, 0.5]} position={[0, 1, 0]}>
+          <meshStandardMaterial color="red" transparent opacity={0.5} />
+        </Box>
+      )}
     </group>
   )
 }

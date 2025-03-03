@@ -38,21 +38,21 @@ function HangingThing({ position }) {
 function Scene() {
   return (
     <group>
-      <HangingThing position={[2, 3.5, 0]} />
+      {/* <HangingThing position={[2, 3.5, 0]} />
       <HangingThing position={[5, 3.5, 0]} />
-      <HangingThing position={[7, 3.5, 0]} />
+      <HangingThing position={[7, 3.5, 0]} /> */}
 
       <Rope length={20} />
 
       {/* Start stick figure higher up */}
-      <StickFigure position={[0, 2, 0]} />
+      <StickFigure position={[0, 20, 0]} />
 
       {/* Extended floor to catch the stick figure */}
       <CuboidCollider position={[0, -2.5, 0]} args={[20, 1, 10]} />
 
       <ContactShadows scale={20} blur={0.4} opacity={0.2} position={[-0, -1.5, 0]} />
 
-      <OrbitControls />
+      <OrbitControls minDistance={1} maxDistance={50} minPolarAngle={0} maxPolarAngle={Math.PI / 1.5} />
     </group>
   )
 }
@@ -71,10 +71,16 @@ export default function App() {
           }}
           shadows
           camera={{
-            position: [-8, 4, 8]
+            position: [-8, 4, 8],
+            fov: 50,
+            near: 0.1,
+            far: 1000
           }}>
           <Environment preset="studio" />
           <fog attach="fog" args={['#000', 2, 100]} />
+
+          <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
+          <ambientLight intensity={0.5} />
 
           <Physics debug>
             <Scene />
