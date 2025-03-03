@@ -20,7 +20,7 @@ const RopeJoint = ({ a, b }) => {
   return null
 }
 
-export function Rope({ length = 20 }) {
+export function Rope({ length = 10 }) {
   const refs = useRef(Array.from({ length }).map(() => createRef()))
 
   useFrame(() => {

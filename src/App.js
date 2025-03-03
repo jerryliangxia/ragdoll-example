@@ -38,17 +38,35 @@ function HangingThing({ position }) {
 function Scene() {
   return (
     <group>
-      {/* <HangingThing position={[2, 3.5, 0]} />
+      <HangingThing position={[-2, 3.5, 0]} />
+      <HangingThing position={[-5, 3.5, 0]} />
+      <HangingThing position={[-7, 3.5, 0]} />
+      <HangingThing position={[2, 3.5, 0]} />
       <HangingThing position={[5, 3.5, 0]} />
-      <HangingThing position={[7, 3.5, 0]} /> */}
+      <HangingThing position={[7, 3.5, 0]} />
 
-      <Rope length={20} />
+      <Rope length={10} />
 
       {/* Start stick figure higher up */}
-      <StickFigure position={[0, 20, 0]} />
+      <StickFigure position={[0, 15, 0]} />
 
-      {/* Extended floor to catch the stick figure */}
-      <CuboidCollider position={[0, -2.5, 0]} args={[20, 1, 10]} />
+      {/* Floor */}
+      <CuboidCollider position={[0, -2.5, 0]} args={[15, 1, 10]} />
+
+      {/* Left Wall */}
+      <CuboidCollider position={[-15, 8, 0]} args={[1, 12, 10]} />
+
+      {/* Right Wall */}
+      <CuboidCollider position={[15, 8, 0]} args={[1, 12, 10]} />
+
+      {/* Back Wall */}
+      <CuboidCollider position={[0, 8, -10]} args={[15, 12, 1]} />
+
+      {/* Front Wall */}
+      <CuboidCollider position={[0, 8, 10]} args={[15, 12, 1]} />
+
+      {/* Ceiling */}
+      <CuboidCollider position={[0, 18, 0]} args={[15, 1, 10]} />
 
       <ContactShadows scale={20} blur={0.4} opacity={0.2} position={[-0, -1.5, 0]} />
 
