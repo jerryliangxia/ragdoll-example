@@ -1,11 +1,43 @@
 import { useRef } from 'react'
 import { RigidBody, useSphericalJoint, CuboidCollider } from '@react-three/rapier'
 import { useGLTF, Text } from '@react-three/drei'
-import { useControls } from 'leva'
 
 // for debug
 const typeRigidBody = 'dynamic'
 const isMeshVisible = true
+
+// Static dimensions
+const dimensions = {
+  rootDimensions: [0.25, 0.25, 0.25],
+  headDimensions: [0.073831, 0.73831, 0.073831],
+  armDimensions: [0.13, 0.1, 0.13],
+  legDimensions: [0.2, 0.2, 0.2]
+}
+
+// Static body positions
+const bodyPositions = {
+  rootPosition: [0, 1, 0],
+  headPosition: [0, 0.859261, 0],
+  armlPosition: [0.4, 1.13, 0],
+  armrPosition: [-0.4, 1.13, 0],
+  leglPosition: [0.25, 0.5, 0],
+  legrPosition: [-0.25, 0.5, 0]
+}
+
+// Static offsets
+const offsets = {
+  boneOffset: [0, -1, 0],
+  armlOffset: [-0.3, -0.75, 0],
+  armrOffset: [0.3, -0.75, 0],
+  leglOffset: [-0.25, -0.5, 0],
+  legrOffset: [0.25, -0.5, 0]
+}
+
+// Fixed rotations for limbs
+const fixedRotations = {
+  armlRotation: [0, 0, -90],
+  armrRotation: [0, 0, 90]
+}
 
 function BoneLabel({ text, position }) {
   return (
@@ -25,39 +57,6 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
     if (object.name === 'Axe' || object.name === 'AxeHead') {
       object.visible = axeVisible
     }
-  })
-
-  // Dimensions controls
-  const dimensions = useControls('Dimensions', {
-    rootDimensions: { value: [0.25, 0.25, 0.25], step: 0.01 },
-    headDimensions: { value: [0.073831, 0.73831, 0.073831], step: 0.01 },
-    armDimensions: { value: [0.13, 0.1, 0.13], step: 0.01 },
-    legDimensions: { value: [0.2, 0.2, 0.2], step: 0.01 }
-  })
-
-  // Body Position controls
-  const bodyPositions = useControls('Body Positions', {
-    rootPosition: { value: [0, 1, 0], step: 0.01 },
-    headPosition: { value: [0, 0.859261, 0], step: 0.01 },
-    armlPosition: { value: [0.4, 1.13, 0], step: 0.01 },
-    armrPosition: { value: [-0.4, 1.13, 0], step: 0.01 },
-    leglPosition: { value: [0.25, 0.5, 0], step: 0.01 },
-    legrPosition: { value: [-0.25, 0.5, 0], step: 0.01 }
-  })
-
-  // Fixed rotations for limbs
-  const fixedRotations = {
-    armlRotation: [0, 0, -90],
-    armrRotation: [0, 0, 90]
-  }
-
-  // Offset controls for visual adjustments
-  const offsets = useControls('Visual Offsets', {
-    boneOffset: { value: [0, -1, 0], step: 0.01 },
-    armlOffset: { value: [-0.3, -0.75, 0], step: 0.01 },
-    armrOffset: { value: [0.3, -0.75, 0], step: 0.01 },
-    leglOffset: { value: [-0.25, -0.5, 0], step: 0.01 },
-    legrOffset: { value: [0.25, -0.5, 0], step: 0.01 }
   })
 
   // Refs for all major body parts
