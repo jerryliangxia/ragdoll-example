@@ -47,8 +47,20 @@ function Scene() {
 
       <Rope length={10} />
 
-      {/* Start stick figure higher up */}
-      <StickFigure position={[0, 15, 0]} />
+      {/* Spawn 10 stick figures in a grid pattern */}
+      {/* First row - without forearms */}
+      <StickFigure position={[-6, 15, -4]} />
+      <StickFigure position={[-3, 15, -4]} />
+      <StickFigure position={[0, 15, -4]} />
+      <StickFigure position={[3, 15, -4]} />
+      <StickFigure position={[6, 15, -4]} />
+
+      {/* Second row - with forearms */}
+      <StickFigure position={[-6, 15, 4]} />
+      <StickFigure position={[-3, 15, 4]} />
+      <StickFigure position={[0, 15, 4]} />
+      <StickFigure position={[3, 15, 4]} />
+      <StickFigure position={[6, 15, 4]} />
 
       {/* Floor */}
       <CuboidCollider position={[0, -2.5, 0]} args={[15, 1, 10]} />

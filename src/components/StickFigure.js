@@ -1,6 +1,8 @@
-import { useRef } from 'react'
+import { useRef, useMemo } from 'react'
 import { RigidBody, useSphericalJoint, CuboidCollider, useFixedJoint } from '@react-three/rapier'
 import { useGLTF, Text } from '@react-three/drei'
+import { useGraph } from '@react-three/fiber'
+import { SkeletonUtils } from 'three-stdlib'
 
 // for debug
 const typeRigidBody = 'dynamic'
@@ -61,8 +63,10 @@ function BoneLabel({ text, position }) {
   )
 }
 
-export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = false, forearmsVisible = true, handsVisible = true }) {
-  const { nodes } = useGLTF('/pepe.glb')
+export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = false, forearmsEnabled = false }) {
+  const { scene } = useGLTF('/pepe.glb')
+  const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
+  const { nodes } = useGraph(clone)
 
   // Disable frustum culling for all objects in the model and hide axe parts
   nodes.Scene.traverse((object) => {
@@ -105,30 +109,33 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
     getRelativePosition(bodyPositions.rootPosition, bodyPositions.armrPosition)
   ])
 
-  useFixedJoint(armL, forearmL, [
-    getRelativePosition(bodyPositions.forearmlPosition, bodyPositions.armlPosition),
-    [0, 0, 0, 1],
-    getRelativePosition(bodyPositions.armlPosition, bodyPositions.forearmlPosition),
-    [0, 0, 0, 1]
-  ])
-  useFixedJoint(armR, forearmR, [
-    getRelativePosition(bodyPositions.forearmrPosition, bodyPositions.armrPosition),
-    [0, 0, 0, 1],
-    getRelativePosition(bodyPositions.armrPosition, bodyPositions.forearmrPosition),
-    [0, 0, 0, 1]
-  ])
-  useFixedJoint(forearmL, handL, [
-    getRelativePosition(bodyPositions.handlPosition, bodyPositions.forearmlPosition),
-    [0, 0, 0, 1],
-    getRelativePosition(bodyPositions.forearmlPosition, bodyPositions.handlPosition),
-    [0, 0, 0, 1]
-  ])
-  useFixedJoint(forearmR, handR, [
-    getRelativePosition(bodyPositions.handrPosition, bodyPositions.forearmrPosition),
-    [0, 0, 0, 1],
-    getRelativePosition(bodyPositions.forearmrPosition, bodyPositions.handrPosition),
-    [0, 0, 0, 1]
-  ])
+  // Only create forearm and hand joints if enabled
+  if (forearmsEnabled) {
+    useFixedJoint(armL, forearmL, [
+      getRelativePosition(bodyPositions.forearmlPosition, bodyPositions.armlPosition),
+      [0, 0, 0, 1],
+      getRelativePosition(bodyPositions.armlPosition, bodyPositions.forearmlPosition),
+      [0, 0, 0, 1]
+    ])
+    useFixedJoint(armR, forearmR, [
+      getRelativePosition(bodyPositions.forearmrPosition, bodyPositions.armrPosition),
+      [0, 0, 0, 1],
+      getRelativePosition(bodyPositions.armrPosition, bodyPositions.forearmrPosition),
+      [0, 0, 0, 1]
+    ])
+    useFixedJoint(forearmL, handL, [
+      getRelativePosition(bodyPositions.handlPosition, bodyPositions.forearmlPosition),
+      [0, 0, 0, 1],
+      getRelativePosition(bodyPositions.forearmlPosition, bodyPositions.handlPosition),
+      [0, 0, 0, 1]
+    ])
+    useFixedJoint(forearmR, handR, [
+      getRelativePosition(bodyPositions.handrPosition, bodyPositions.forearmrPosition),
+      [0, 0, 0, 1],
+      getRelativePosition(bodyPositions.forearmrPosition, bodyPositions.handrPosition),
+      [0, 0, 0, 1]
+    ])
+  }
 
   return (
     <group position={position}>
@@ -177,44 +184,41 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
         </group>
       </RigidBody>
 
-      {/* Left Forearm */}
-      {forearmsVisible && (
-        <RigidBody ref={forearmL} position={bodyPositions.forearmlPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
-          <CuboidCollider args={dimensions.forearmDimensions} />
-          <group position={offsets.forearmlOffset}>
-            <primitive object={nodes.forearml} rotation={fixedRotations.forearmlRotation.map((r) => (r * Math.PI) / 180)} />
-          </group>
-        </RigidBody>
-      )}
+      {/* Forearms and Hands only render if enabled */}
+      {forearmsEnabled && (
+        <>
+          {/* Left Forearm */}
+          <RigidBody ref={forearmL} position={bodyPositions.forearmlPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
+            <CuboidCollider args={dimensions.forearmDimensions} />
+            <group position={offsets.forearmlOffset}>
+              <primitive object={nodes.forearml} rotation={fixedRotations.forearmlRotation.map((r) => (r * Math.PI) / 180)} />
+            </group>
+          </RigidBody>
 
-      {/* Right Forearm */}
-      {forearmsVisible && (
-        <RigidBody ref={forearmR} position={bodyPositions.forearmrPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
-          <CuboidCollider args={dimensions.forearmDimensions} />
-          <group position={offsets.forearmrOffset}>
-            <primitive object={nodes.forearmr} rotation={fixedRotations.forearmrRotation.map((r) => (r * Math.PI) / 180)} />
-          </group>
-        </RigidBody>
-      )}
+          {/* Right Forearm */}
+          <RigidBody ref={forearmR} position={bodyPositions.forearmrPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
+            <CuboidCollider args={dimensions.forearmDimensions} />
+            <group position={offsets.forearmrOffset}>
+              <primitive object={nodes.forearmr} rotation={fixedRotations.forearmrRotation.map((r) => (r * Math.PI) / 180)} />
+            </group>
+          </RigidBody>
 
-      {/* Left Hand */}
-      {handsVisible && (
-        <RigidBody ref={handL} position={bodyPositions.handlPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
-          <CuboidCollider args={dimensions.handDimensions} />
-          <group position={offsets.handlOffset}>
-            <primitive object={nodes.handl} rotation={fixedRotations.handlRotation.map((r) => (r * Math.PI) / 180)} />
-          </group>
-        </RigidBody>
-      )}
+          {/* Left Hand */}
+          <RigidBody ref={handL} position={bodyPositions.handlPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
+            <CuboidCollider args={dimensions.handDimensions} />
+            <group position={offsets.handlOffset}>
+              <primitive object={nodes.handl} rotation={fixedRotations.handlRotation.map((r) => (r * Math.PI) / 180)} />
+            </group>
+          </RigidBody>
 
-      {/* Right Hand */}
-      {handsVisible && (
-        <RigidBody ref={handR} position={bodyPositions.handrPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
-          <CuboidCollider args={dimensions.handDimensions} />
-          <group position={offsets.handrOffset}>
-            <primitive object={nodes.handr} rotation={fixedRotations.handrRotation.map((r) => (r * Math.PI) / 180)} />
-          </group>
-        </RigidBody>
+          {/* Right Hand */}
+          <RigidBody ref={handR} position={bodyPositions.handrPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
+            <CuboidCollider args={dimensions.handDimensions} />
+            <group position={offsets.handrOffset}>
+              <primitive object={nodes.handr} rotation={fixedRotations.handrRotation.map((r) => (r * Math.PI) / 180)} />
+            </group>
+          </RigidBody>
+        </>
       )}
 
       {/* Main mesh */}
