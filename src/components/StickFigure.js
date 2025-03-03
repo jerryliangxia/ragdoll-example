@@ -27,7 +27,7 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
   const dimensions = useControls('Dimensions', {
     rootDimensions: { value: [0.25, 0.25, 0.25], step: 0.01 },
     headDimensions: { value: [0.073831, 0.73831, 0.073831], step: 0.01 },
-    armDimensions: { value: [0.1, 0.1, 0.1], step: 0.01 },
+    armDimensions: { value: [0.13, 0.1, 0.13], step: 0.01 },
     legDimensions: { value: [0.2, 0.2, 0.2], step: 0.01 },
     forearmDimensions: { value: [0.1, 0.1, 0.1], step: 0.01 },
     handDimensions: { value: [0.1, 0.1, 0.1], step: 0.01 }
@@ -37,10 +37,10 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
   const bodyPositions = useControls('Body Positions', {
     rootPosition: { value: [0, 1, 0], step: 0.01 },
     headPosition: { value: [0, 0.859261, 0], step: 0.01 },
-    armlPosition: { value: [0.34, 1.13, 0], step: 0.01 },
-    armrPosition: { value: [-0.34, 1.13, 0], step: 0.01 },
-    leglPosition: { value: [0.25, 0.25, 0], step: 0.01 },
-    legrPosition: { value: [-0.25, 0.25, 0], step: 0.01 },
+    armlPosition: { value: [0.4, 1.13, 0], step: 0.01 },
+    armrPosition: { value: [-0.4, 1.13, 0], step: 0.01 },
+    leglPosition: { value: [0.25, 0.5, 0], step: 0.01 },
+    legrPosition: { value: [-0.25, 0.5, 0], step: 0.01 },
     // others
     forearmlPosition: { value: [0.65, 1.123411, -0.16], step: 0.01 },
     forearmrPosition: { value: [-0.65, 1.123411, -0.16], step: 0.01 },
@@ -73,8 +73,8 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
     boneOffset: { value: [0, -1, 0], step: 0.01 },
     armlOffset: { value: [-0.3, -0.75, 0], step: 0.01 },
     armrOffset: { value: [0.3, -0.75, 0], step: 0.01 },
-    leglOffset: { value: [-0.25, 0, 0], step: 0.01 },
-    legrOffset: { value: [0.25, 0, 0], step: 0.01 },
+    leglOffset: { value: [-0.25, -0.5, 0], step: 0.01 },
+    legrOffset: { value: [0.25, -0.5, 0], step: 0.01 },
     forearmlOffset: { value: [0.25, -0.27, 0], step: 0.01 },
     forearmrOffset: { value: [-0.25, -0.27, 0], step: 0.01 },
     handlOffset: { value: [0.25, -0.3, 0], step: 0.01 },
@@ -97,14 +97,30 @@ export function StickFigure({ position = [0, 0, 0], debug = true }) {
   const getRelativePosition = (pos1, pos2) => [(pos1[0] - pos2[0]) / 2, (pos1[1] - pos2[1]) / 2, (pos1[2] - pos2[2]) / 2]
 
   // useSphericalJoint(A,B,(B,A),(A,B))
-  useSphericalJoint(root, legL, [
-    getRelativePosition(bodyPositions.leglPosition, bodyPositions.rootPosition),
-    getRelativePosition(bodyPositions.rootPosition, bodyPositions.leglPosition)
-  ])
-  useSphericalJoint(root, legR, [
-    getRelativePosition(bodyPositions.legrPosition, bodyPositions.rootPosition),
-    getRelativePosition(bodyPositions.rootPosition, bodyPositions.legrPosition)
-  ])
+  useSphericalJoint(
+    root,
+    legL,
+    [getRelativePosition(bodyPositions.leglPosition, bodyPositions.rootPosition), getRelativePosition(bodyPositions.rootPosition, bodyPositions.leglPosition)],
+    {
+      limits: {
+        x: { min: -Math.PI / 4, max: Math.PI / 4 }, // Limit forward/backward rotation
+        y: { min: -Math.PI / 4, max: Math.PI / 4 }, // Limit side-to-side rotation
+        z: { min: -Math.PI / 4, max: Math.PI / 4 } // Limit twisting
+      }
+    }
+  )
+  useSphericalJoint(
+    root,
+    legR,
+    [getRelativePosition(bodyPositions.legrPosition, bodyPositions.rootPosition), getRelativePosition(bodyPositions.rootPosition, bodyPositions.legrPosition)],
+    {
+      limits: {
+        x: { min: -Math.PI / 4, max: Math.PI / 4 }, // Limit forward/backward rotation
+        y: { min: -Math.PI / 4, max: Math.PI / 4 }, // Limit side-to-side rotation
+        z: { min: -Math.PI / 4, max: Math.PI / 4 } // Limit twisting
+      }
+    }
+  )
   useSphericalJoint(root, armL, [
     getRelativePosition(bodyPositions.armlPosition, bodyPositions.rootPosition),
     getRelativePosition(bodyPositions.rootPosition, bodyPositions.armlPosition)
