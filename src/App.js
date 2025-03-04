@@ -49,18 +49,18 @@ function Scene() {
 
       {/* Spawn 10 stick figures in a grid pattern */}
       {/* First row - without forearms */}
-      <StickFigure position={[-6, 15, -4]} />
-      <StickFigure position={[-3, 15, -4]} />
-      <StickFigure position={[0, 15, -4]} />
-      <StickFigure position={[3, 15, -4]} />
-      <StickFigure position={[6, 15, -4]} />
+      <StickFigure position={[-6, 10, -4]} />
+      <StickFigure position={[-3, 10, -4]} />
+      <StickFigure position={[0, 10, -4]} />
+      <StickFigure position={[3, 10, -4]} />
+      <StickFigure position={[6, 10, -4]} />
 
       {/* Second row - with forearms */}
-      <StickFigure position={[-6, 15, 4]} />
-      <StickFigure position={[-3, 15, 4]} />
-      <StickFigure position={[0, 15, 4]} />
-      <StickFigure position={[3, 15, 4]} />
-      <StickFigure position={[6, 15, 4]} />
+      <StickFigure position={[-6, 10, 4]} />
+      <StickFigure position={[-3, 10, 4]} />
+      <StickFigure position={[0, 10, 4]} />
+      <StickFigure position={[3, 10, 4]} />
+      <StickFigure position={[6, 10, 4]} />
 
       {/* Floor */}
       <CuboidCollider position={[0, -2.5, 0]} args={[15, 1, 10]} />
@@ -82,7 +82,7 @@ function Scene() {
 
       <ContactShadows scale={20} blur={0.4} opacity={0.2} position={[-0, -1.5, 0]} />
 
-      <OrbitControls minDistance={1} maxDistance={50} minPolarAngle={0} maxPolarAngle={Math.PI / 1.5} />
+      <OrbitControls minDistance={10} maxDistance={20} minPolarAngle={0} maxPolarAngle={Math.PI / 1.5} enablePan={false} />
     </group>
   )
 }
