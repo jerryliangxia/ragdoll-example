@@ -1,4 +1,4 @@
-import { useRef, useMemo, useCallback, useState, useEffect } from 'react'
+import { useRef, useMemo, useCallback, useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { RigidBody, useSphericalJoint, CuboidCollider, useFixedJoint, vec3 } from '@react-three/rapier'
 import { useGLTF, Text } from '@react-three/drei'
 import { useGraph, useFrame, useThree } from '@react-three/fiber'
@@ -10,9 +10,11 @@ const typeRigidBody = 'dynamic'
 const isMeshVisible = true
 
 // Physics constants
-const MAX_VELOCITY = 10 // Maximum velocity magnitude
-const VELOCITY_AMPLIFIER = 2 // Amplify the throw velocity
-const VELOCITY_SMOOTHING = 0.3 // Velocity smoothing factor (0-1)
+const MAX_VELOCITY = 50 // Increased maximum velocity for faster movements
+const VELOCITY_AMPLIFIER = 1 // Reduced amplifier since we're using raw velocities
+const VELOCITY_SMOOTHING = 0.5 // Increased smoothing factor for more responsive movement
+const MIN_DELTA = 1 / 60 // Minimum delta time to prevent huge velocity spikes
+const POSITION_SMOOTHING = 0.8 // Smoothing factor for position updates
 
 function BoneLabel({ text, position }) {
   return (
@@ -22,7 +24,7 @@ function BoneLabel({ text, position }) {
   )
 }
 
-export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = false, forearmsEnabled = false }) {
+export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axeVisible = false, forearmsEnabled = false, isShiftPressed = false }, ref) => {
   const { scene } = useGLTF('/pepe.glb')
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
   const { nodes } = useGraph(clone)
@@ -156,18 +158,6 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
     ])
   }
 
-  // Handle pointer over for cursor style
-  const handlePointerOver = useCallback(() => {
-    setHovered(true)
-    document.body.style.cursor = 'grab'
-  }, [])
-
-  // Handle pointer out for cursor style
-  const handlePointerOut = useCallback(() => {
-    setHovered(false)
-    document.body.style.cursor = 'auto'
-  }, [])
-
   // Get 3D point from mouse position
   const getMousePoint = useCallback(
     (mousePosition, targetZ) => {
@@ -186,9 +176,28 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
     [raycaster, camera, dragPlane]
   )
 
+  // Handle pointer over for cursor style
+  const handlePointerOver = useCallback(() => {
+    if (!isShiftPressed) {
+      setHovered(true)
+      document.body.style.cursor = 'grab'
+    }
+  }, [isShiftPressed])
+
+  // Handle pointer out for cursor style
+  const handlePointerOut = useCallback(() => {
+    if (!isShiftPressed) {
+      setHovered(false)
+      document.body.style.cursor = 'auto'
+    }
+  }, [isShiftPressed])
+
   // Handle drag start for any part
   const handleDragStart = useCallback(
     (event, part) => {
+      // Don't start drag if shift is pressed
+      if (isShiftPressed) return
+
       event.stopPropagation()
       setIsDragging(true)
       setDraggedPart(part)
@@ -221,7 +230,7 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
         currentPart.setBodyType(1) // 1 = kinematic
       }
     },
-    [mouse, getMousePoint, dragOffset]
+    [mouse, getMousePoint, dragOffset, isShiftPressed]
   )
 
   // Handle drag end for any part
@@ -310,28 +319,26 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
     if (!currentPart) return
 
     if (!maxVelocityReached) {
-      // Store the current position before updating
+      // Get the current mouse position in 3D space
+      const currentMouse = { x: state.mouse.x, y: state.mouse.y }
+      const mousePoint = getMousePoint(currentMouse, currentPart.translation().z)
+
+      // Apply the offset to get the target position
+      const targetPosition = {
+        x: mousePoint.x + dragOffset.x,
+        y: mousePoint.y + dragOffset.y,
+        z: currentPart.translation().z
+      }
+
+      // Store current position for velocity calculation
       const currentPosition = vec3(currentPart.translation())
       const currentPos = new Vector3(currentPosition.x, currentPosition.y, currentPosition.z)
 
-      // Use the mouse from state which is continuously updated
-      const currentMouse = { x: state.mouse.x, y: state.mouse.y }
+      // Calculate instantaneous velocity with delta time clamping
+      const clampedDelta = Math.max(delta, MIN_DELTA)
+      const frameVelocity = new Vector3((targetPosition.x - currentPosition.x) / clampedDelta, (targetPosition.y - currentPosition.y) / clampedDelta, 0)
 
-      // Direct dragging - update position immediately based on mouse
-      const mousePoint = getMousePoint(currentMouse, currentPosition.z)
-
-      // Apply the offset to get the new position
-      const newPosition = {
-        x: mousePoint.x + dragOffset.x,
-        y: mousePoint.y + dragOffset.y,
-        z: currentPosition.z
-      }
-
-      // Calculate velocity for when we release
-      const newPos = new Vector3(newPosition.x, newPosition.y, newPosition.z)
-      const frameVelocity = newPos.clone().sub(currentPos).divideScalar(delta)
-
-      // Smooth the velocity using exponential moving average
+      // Smooth the velocity for throwing
       lastVelocity.lerp(frameVelocity, VELOCITY_SMOOTHING)
 
       // Calculate current velocity magnitude
@@ -342,8 +349,6 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
       if (velocityMagnitude >= MAX_VELOCITY) {
         // We've reached max velocity - switch to dynamic mode
         setMaxVelocityReached(true)
-
-        // Set the rigid body to dynamic
         currentPart.setBodyType(0) // 0 = dynamic
 
         // Apply the capped velocity
@@ -357,15 +362,64 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
           true
         )
       } else {
-        // Update position directly
-        currentPart.setTranslation(newPosition, true)
+        // Create a smoothed position by lerping between current and target
+        const smoothedPosition = new Vector3(currentPosition.x, currentPosition.y, currentPosition.z).lerp(
+          new Vector3(targetPosition.x, targetPosition.y, targetPosition.z),
+          POSITION_SMOOTHING
+        )
+
+        // Update position with smoothing
+        currentPart.setTranslation(
+          {
+            x: smoothedPosition.x,
+            y: smoothedPosition.y,
+            z: targetPosition.z
+          },
+          true
+        )
       }
 
-      // Update last mouse position
-      lastMousePosition.current = currentMouse
+      // Update last position for next frame
       lastPosition.current.copy(currentPos)
+      lastMousePosition.current = currentMouse
     }
   })
+
+  // Add reset function
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+      // Reset all body positions and velocities
+      const bodyMap = {
+        root: { ref: root.current, posKey: 'rootPosition' },
+        armL: { ref: armL.current, posKey: 'armlPosition' },
+        armR: { ref: armR.current, posKey: 'armrPosition' },
+        legL: { ref: legL.current, posKey: 'leglPosition' },
+        legR: { ref: legR.current, posKey: 'legrPosition' }
+      }
+
+      Object.values(bodyMap).forEach(({ ref, posKey }) => {
+        if (ref) {
+          // Reset to original position
+          const pos = bodyPositions[posKey]
+          ref.setTranslation({ x: pos[0], y: pos[1], z: pos[2] }, true)
+          // Reset velocity
+          ref.setLinvel({ x: 0, y: 0, z: 0 }, true)
+          // Reset angular velocity
+          ref.setAngvel({ x: 0, y: 0, z: 0 }, true)
+          // Reset rotation
+          ref.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true)
+          // Ensure body is dynamic
+          ref.setBodyType(0)
+        }
+      })
+
+      // Reset state
+      setIsDragging(false)
+      setDraggedPart(null)
+      setMaxVelocityReached(false)
+      setCurrentVelocity(0)
+    }
+  }))
 
   return (
     <group position={position}>
@@ -565,6 +619,6 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
       {isMeshVisible && <primitive object={nodes.Scene} scale={[2, 2, 2]} />}
     </group>
   )
-}
+})
 
 useGLTF.preload('/pepe.glb')
