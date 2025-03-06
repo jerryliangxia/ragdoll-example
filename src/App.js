@@ -39,7 +39,7 @@ function Scene() {
   return (
     <group>
       {/* Just one stick figure */}
-      <StickFigure position={[0, 1, 0]} forearmsEnabled={true} />
+      <StickFigure position={[0, 1, 0]} forearmsEnabled={false} />
 
       {/* Floor */}
       <CuboidCollider position={[0, -2.5, 0]} args={[15, 1, 10]} />

@@ -7,59 +7,12 @@ import { Vector3, BoxGeometry, MeshStandardMaterial, Raycaster, Plane } from 'th
 
 // for debug
 const typeRigidBody = 'dynamic'
-const isMeshVisible = false
+const isMeshVisible = true
 
 // Physics constants
 const MAX_VELOCITY = 10 // Maximum velocity magnitude
 const VELOCITY_AMPLIFIER = 2 // Amplify the throw velocity
 const VELOCITY_SMOOTHING = 0.3 // Velocity smoothing factor (0-1)
-
-// Static dimensions
-const dimensions = {
-  rootDimensions: [0.25, 0.25, 0.25],
-  headDimensions: [0.073831, 0.73831, 0.073831],
-  armDimensions: [0.13, 0.1, 0.13],
-  legDimensions: [0.2, 0.2, 0.2],
-  forearmDimensions: [0.1, 0.1, 0.1],
-  handDimensions: [0.1, 0.1, 0.1]
-}
-
-// Static body positions
-const bodyPositions = {
-  rootPosition: [0, 1, 0],
-  headPosition: [0, 0.859261, 0],
-  armlPosition: [0.4, 1.13, 0],
-  armrPosition: [-0.4, 1.13, 0],
-  leglPosition: [0.25, 0.5, 0],
-  legrPosition: [-0.25, 0.5, 0],
-  forearmlPosition: [0.65, 1.123411, -0.16],
-  forearmrPosition: [-0.65, 1.123411, -0.16],
-  handlPosition: [1.0, 1.123411, -0.2],
-  handrPosition: [-1.0, 1.123411, -0.2]
-}
-
-// Static offsets
-const offsets = {
-  boneOffset: [0, -1, 0],
-  armlOffset: [-0.3, -0.75, 0],
-  armrOffset: [0.3, -0.75, 0],
-  leglOffset: [-0.25, -0.5, 0],
-  legrOffset: [0.25, -0.5, 0],
-  forearmlOffset: [0.25, -0.27, 0],
-  forearmrOffset: [-0.25, -0.27, 0],
-  handlOffset: [0.25, -0.3, 0],
-  handrOffset: [-0.25, -0.3, 0]
-}
-
-// Fixed rotations for limbs
-const fixedRotations = {
-  armlRotation: [0, 0, -90],
-  armrRotation: [0, 0, 90],
-  forearmlRotation: [0, 0, -90],
-  forearmrRotation: [0, 0, 90],
-  handlRotation: [0, 0, -90],
-  handrRotation: [0, 0, 90]
-}
 
 function BoneLabel({ text, position }) {
   return (
@@ -75,6 +28,7 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
   const { nodes } = useGraph(clone)
   const { camera, mouse, viewport } = useThree()
   const [isDragging, setIsDragging] = useState(false)
+  const [draggedPart, setDraggedPart] = useState(null)
   const [hovered, setHovered] = useState(false)
   const [currentVelocity, setCurrentVelocity] = useState(0)
   const [maxVelocityReached, setMaxVelocityReached] = useState(false)
@@ -85,6 +39,53 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
   const lastMousePosition = useRef({ x: 0, y: 0 })
   const dragStartTime = useRef(0)
   const lastPosition = useRef(new Vector3())
+
+  // Static dimensions
+  const dimensions = {
+    rootDimensions: [0.25, 0.25, 0.25],
+    headDimensions: [0.073831, 0.73831, 0.073831],
+    armDimensions: forearmsEnabled ? [0.13, 0.1, 0.13] : [0.4, 0.2, 0.2],
+    legDimensions: [0.2, 0.4, 0.2],
+    forearmDimensions: [0.1, 0.1, 0.1],
+    handDimensions: [0.1, 0.1, 0.1]
+  }
+
+  // Static body positions
+  const bodyPositions = {
+    rootPosition: [0, 1, 0],
+    headPosition: [0, 0.859261, 0],
+    armlPosition: [0.8, 1.13, 0],
+    armrPosition: [-0.8, 1.13, 0],
+    leglPosition: [0.25, 0.3, 0],
+    legrPosition: [-0.25, 0.3, 0],
+    forearmlPosition: [0.65, 1.123411, -0.16],
+    forearmrPosition: [-0.65, 1.123411, -0.16],
+    handlPosition: [1.0, 1.123411, -0.2],
+    handrPosition: [-1.0, 1.123411, -0.2]
+  }
+
+  // Static offsets
+  const offsets = {
+    boneOffset: [0, -1, 0],
+    armlOffset: forearmsEnabled ? [-0.3, -0.75, 0] : [-0.7, -0.75, 0],
+    armrOffset: forearmsEnabled ? [0.3, -0.75, 0] : [0.7, -0.75, 0],
+    leglOffset: [-0.25, -0.3, 0],
+    legrOffset: [0.25, -0.3, 0],
+    forearmlOffset: [0.25, -0.27, 0],
+    forearmrOffset: [-0.25, -0.27, 0],
+    handlOffset: [0.25, -0.3, 0],
+    handrOffset: [-0.25, -0.3, 0]
+  }
+
+  // Fixed rotations for limbs
+  const fixedRotations = {
+    armlRotation: [0, 0, -90],
+    armrRotation: [0, 0, 90],
+    forearmlRotation: [0, 0, -90],
+    forearmrRotation: [0, 0, 90],
+    handlRotation: [0, 0, -90],
+    handrRotation: [0, 0, 90]
+  }
 
   // Disable frustum culling for all objects in the model and hide axe parts
   nodes.Scene.traverse((object) => {
@@ -185,55 +186,71 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
     [raycaster, camera, dragPlane]
   )
 
-  // Handle drag start
+  // Handle drag start for any part
   const handleDragStart = useCallback(
-    (event) => {
+    (event, part) => {
       event.stopPropagation()
       setIsDragging(true)
+      setDraggedPart(part)
       setCurrentVelocity(0)
       setMaxVelocityReached(false)
       document.body.style.cursor = 'grabbing'
       dragStartTime.current = Date.now()
       lastMousePosition.current = { x: mouse.x, y: mouse.y }
 
-      if (root.current) {
-        // Get current bone position
-        const bonePosition = vec3(root.current.translation())
-        lastPosition.current.set(bonePosition.x, bonePosition.y, bonePosition.z)
+      const currentPart = {
+        root: root.current,
+        armL: armL.current,
+        armR: armR.current,
+        legL: legL.current,
+        legR: legR.current
+      }[part]
+
+      if (currentPart) {
+        // Get current part position
+        const partPosition = vec3(currentPart.translation())
+        lastPosition.current.set(partPosition.x, partPosition.y, partPosition.z)
 
         // Get the click point in 3D space
-        const clickPoint = getMousePoint(mouse, bonePosition.z)
+        const clickPoint = getMousePoint(mouse, partPosition.z)
 
-        // Calculate offset from click point to bone center
-        dragOffset.set(bonePosition.x - clickPoint.x, bonePosition.y - clickPoint.y, 0)
+        // Calculate offset from click point to part center
+        dragOffset.set(partPosition.x - clickPoint.x, partPosition.y - clickPoint.y, 0)
 
         // Set the rigid body to kinematic during dragging
-        root.current.setBodyType(1) // 1 = kinematic
+        currentPart.setBodyType(1) // 1 = kinematic
       }
     },
     [mouse, getMousePoint, dragOffset]
   )
 
-  // Handle drag end
+  // Handle drag end for any part
   const handleDragEnd = useCallback(
     (event) => {
       if (isDragging) {
         setIsDragging(false)
-        setMaxVelocityReached(false)
         document.body.style.cursor = hovered ? 'grab' : 'auto'
 
-        if (root.current) {
+        const currentPart = {
+          root: root.current,
+          armL: armL.current,
+          armR: armR.current,
+          legL: legL.current,
+          legR: legR.current
+        }[draggedPart]
+
+        if (currentPart) {
           // If not already dynamic (from max velocity), set it now
-          if (root.current.bodyType() !== 0) {
+          if (currentPart.bodyType() !== 0) {
             // Calculate velocity based on recent movement
             const velocity = lastVelocity.clone()
 
             // Set the rigid body back to dynamic
-            root.current.setBodyType(0) // 0 = dynamic
+            currentPart.setBodyType(0) // 0 = dynamic
 
             // Apply the velocity from dragging
             if (velocity.length() > 0.1) {
-              root.current.setLinvel(
+              currentPart.setLinvel(
                 {
                   x: velocity.x * VELOCITY_AMPLIFIER,
                   y: velocity.y * VELOCITY_AMPLIFIER,
@@ -244,9 +261,11 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
             }
           }
         }
+        setDraggedPart(null)
+        setMaxVelocityReached(false)
       }
     },
-    [isDragging, hovered, lastVelocity]
+    [isDragging, hovered, draggedPart, lastVelocity]
   )
 
   // Add global event listeners to ensure drag continues even if pointer leaves the object
@@ -276,13 +295,23 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
     }
   }, [isDragging, handleDragEnd])
 
-  // Update position during dragging
+  // Update useFrame to handle any dragged part
   useFrame((state, delta) => {
-    if (!root.current) return
+    if (!isDragging || !draggedPart) return
 
-    if (isDragging && !maxVelocityReached) {
+    const currentPart = {
+      root: root.current,
+      armL: armL.current,
+      armR: armR.current,
+      legL: legL.current,
+      legR: legR.current
+    }[draggedPart]
+
+    if (!currentPart) return
+
+    if (!maxVelocityReached) {
       // Store the current position before updating
-      const currentPosition = vec3(root.current.translation())
+      const currentPosition = vec3(currentPart.translation())
       const currentPos = new Vector3(currentPosition.x, currentPosition.y, currentPosition.z)
 
       // Use the mouse from state which is continuously updated
@@ -315,11 +344,11 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
         setMaxVelocityReached(true)
 
         // Set the rigid body to dynamic
-        root.current.setBodyType(0) // 0 = dynamic
+        currentPart.setBodyType(0) // 0 = dynamic
 
         // Apply the capped velocity
         const cappedVelocity = lastVelocity.clone().normalize().multiplyScalar(MAX_VELOCITY)
-        root.current.setLinvel(
+        currentPart.setLinvel(
           {
             x: cappedVelocity.x,
             y: cappedVelocity.y,
@@ -327,11 +356,9 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
           },
           true
         )
-
-        // We'll continue dragging visually, but the physics will take over
       } else {
         // Update position directly
-        root.current.setTranslation(newPosition, true)
+        currentPart.setTranslation(newPosition, true)
       }
 
       // Update last mouse position
@@ -349,7 +376,7 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
           <>
             <BoneLabel
               text={
-                isDragging
+                isDragging && draggedPart === 'root'
                   ? maxVelocityReached
                     ? 'Max Velocity!'
                     : `Dragging: ${Math.min(100, Math.round((currentVelocity / MAX_VELOCITY) * 100))}%`
@@ -362,15 +389,19 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
         <group position={offsets.boneOffset}>
           <primitive
             object={nodes.Bone}
-            onPointerDown={handleDragStart}
+            onPointerDown={(e) => handleDragStart(e, 'root')}
             onPointerUp={handleDragEnd}
             onPointerOver={handlePointerOver}
             onPointerOut={handlePointerOut}
           />
         </group>
-        {/* Add an invisible mesh that will handle the events */}
-        <mesh onPointerDown={handleDragStart} onPointerUp={handleDragEnd} onPointerOver={handlePointerOver} onPointerOut={handlePointerOut} visible={false}>
-          <boxGeometry args={[dimensions.rootDimensions[0], dimensions.rootDimensions[1], dimensions.rootDimensions[2]]} />
+        <mesh
+          onPointerDown={(e) => handleDragStart(e, 'root')}
+          onPointerUp={handleDragEnd}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+          visible={false}>
+          <boxGeometry args={dimensions.rootDimensions} />
           <meshStandardMaterial transparent opacity={0} />
         </mesh>
       </RigidBody>
@@ -378,33 +409,119 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
       {/* Left Arm */}
       <RigidBody ref={armL} position={bodyPositions.armlPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
         <CuboidCollider args={dimensions.armDimensions} />
+        {debug && draggedPart === 'armL' && (
+          <BoneLabel
+            text={maxVelocityReached ? 'Max Velocity!' : `Dragging: ${Math.min(100, Math.round((currentVelocity / MAX_VELOCITY) * 100))}%`}
+            position={[0, 0.2, 0]}
+          />
+        )}
         <group position={offsets.armlOffset}>
-          <primitive object={nodes.arml} rotation={fixedRotations.armlRotation.map((r) => (r * Math.PI) / 180)} />
+          <primitive
+            object={nodes.arml}
+            rotation={fixedRotations.armlRotation.map((r) => (r * Math.PI) / 180)}
+            onPointerDown={(e) => handleDragStart(e, 'armL')}
+            onPointerUp={handleDragEnd}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
+          />
         </group>
+        <mesh
+          onPointerDown={(e) => handleDragStart(e, 'armL')}
+          onPointerUp={handleDragEnd}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+          visible={false}>
+          <boxGeometry args={dimensions.armDimensions} />
+          <meshStandardMaterial transparent opacity={0} />
+        </mesh>
       </RigidBody>
 
       {/* Right Arm */}
       <RigidBody ref={armR} position={bodyPositions.armrPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
         <CuboidCollider args={dimensions.armDimensions} />
+        {debug && draggedPart === 'armR' && (
+          <BoneLabel
+            text={maxVelocityReached ? 'Max Velocity!' : `Dragging: ${Math.min(100, Math.round((currentVelocity / MAX_VELOCITY) * 100))}%`}
+            position={[0, 0.2, 0]}
+          />
+        )}
         <group position={offsets.armrOffset}>
-          <primitive object={nodes.armr} rotation={fixedRotations.armrRotation.map((r) => (r * Math.PI) / 180)} />
+          <primitive
+            object={nodes.armr}
+            rotation={fixedRotations.armrRotation.map((r) => (r * Math.PI) / 180)}
+            onPointerDown={(e) => handleDragStart(e, 'armR')}
+            onPointerUp={handleDragEnd}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
+          />
         </group>
+        <mesh
+          onPointerDown={(e) => handleDragStart(e, 'armR')}
+          onPointerUp={handleDragEnd}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+          visible={false}>
+          <boxGeometry args={dimensions.armDimensions} />
+          <meshStandardMaterial transparent opacity={0} />
+        </mesh>
       </RigidBody>
 
       {/* Left Leg */}
       <RigidBody ref={legL} position={bodyPositions.leglPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
         <CuboidCollider args={dimensions.legDimensions} />
+        {debug && draggedPart === 'legL' && (
+          <BoneLabel
+            text={maxVelocityReached ? 'Max Velocity!' : `Dragging: ${Math.min(100, Math.round((currentVelocity / MAX_VELOCITY) * 100))}%`}
+            position={[0, 0.2, 0]}
+          />
+        )}
         <group position={offsets.leglOffset}>
-          <primitive object={nodes.legl} />
+          <primitive
+            object={nodes.legl}
+            onPointerDown={(e) => handleDragStart(e, 'legL')}
+            onPointerUp={handleDragEnd}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
+          />
         </group>
+        <mesh
+          onPointerDown={(e) => handleDragStart(e, 'legL')}
+          onPointerUp={handleDragEnd}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+          visible={false}>
+          <boxGeometry args={dimensions.legDimensions} />
+          <meshStandardMaterial transparent opacity={0} />
+        </mesh>
       </RigidBody>
 
       {/* Right Leg */}
       <RigidBody ref={legR} position={bodyPositions.legrPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
         <CuboidCollider args={dimensions.legDimensions} />
+        {debug && draggedPart === 'legR' && (
+          <BoneLabel
+            text={maxVelocityReached ? 'Max Velocity!' : `Dragging: ${Math.min(100, Math.round((currentVelocity / MAX_VELOCITY) * 100))}%`}
+            position={[0, 0.2, 0]}
+          />
+        )}
         <group position={offsets.legrOffset}>
-          <primitive object={nodes.legr} />
+          <primitive
+            object={nodes.legr}
+            onPointerDown={(e) => handleDragStart(e, 'legR')}
+            onPointerUp={handleDragEnd}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
+          />
         </group>
+        <mesh
+          onPointerDown={(e) => handleDragStart(e, 'legR')}
+          onPointerUp={handleDragEnd}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+          visible={false}>
+          <boxGeometry args={dimensions.legDimensions} />
+          <meshStandardMaterial transparent opacity={0} />
+        </mesh>
       </RigidBody>
 
       {/* Forearms and Hands only render if enabled */}
