@@ -1,12 +1,18 @@
-import { useRef, useMemo } from 'react'
-import { RigidBody, useSphericalJoint, CuboidCollider, useFixedJoint } from '@react-three/rapier'
+import { useRef, useMemo, useCallback, useState, useEffect } from 'react'
+import { RigidBody, useSphericalJoint, CuboidCollider, useFixedJoint, vec3 } from '@react-three/rapier'
 import { useGLTF, Text } from '@react-three/drei'
-import { useGraph } from '@react-three/fiber'
+import { useGraph, useFrame, useThree } from '@react-three/fiber'
 import { SkeletonUtils } from 'three-stdlib'
+import { Vector3, BoxGeometry, MeshStandardMaterial, Raycaster, Plane } from 'three'
 
 // for debug
 const typeRigidBody = 'dynamic'
-const isMeshVisible = true
+const isMeshVisible = false
+
+// Physics constants
+const MAX_VELOCITY = 10 // Maximum velocity magnitude
+const VELOCITY_AMPLIFIER = 2 // Amplify the throw velocity
+const VELOCITY_SMOOTHING = 0.3 // Velocity smoothing factor (0-1)
 
 // Static dimensions
 const dimensions = {
@@ -67,6 +73,18 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
   const { scene } = useGLTF('/pepe.glb')
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
   const { nodes } = useGraph(clone)
+  const { camera, mouse, viewport } = useThree()
+  const [isDragging, setIsDragging] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const [currentVelocity, setCurrentVelocity] = useState(0)
+  const [maxVelocityReached, setMaxVelocityReached] = useState(false)
+  const raycaster = useMemo(() => new Raycaster(), [])
+  const dragPlane = useMemo(() => new Plane(new Vector3(0, 0, 1)), [])
+  const dragOffset = useMemo(() => new Vector3(), [])
+  const lastVelocity = useMemo(() => new Vector3(), [])
+  const lastMousePosition = useRef({ x: 0, y: 0 })
+  const dragStartTime = useRef(0)
+  const lastPosition = useRef(new Vector3())
 
   // Disable frustum culling for all objects in the model and hide axe parts
   nodes.Scene.traverse((object) => {
@@ -137,6 +155,191 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
     ])
   }
 
+  // Handle pointer over for cursor style
+  const handlePointerOver = useCallback(() => {
+    setHovered(true)
+    document.body.style.cursor = 'grab'
+  }, [])
+
+  // Handle pointer out for cursor style
+  const handlePointerOut = useCallback(() => {
+    setHovered(false)
+    document.body.style.cursor = 'auto'
+  }, [])
+
+  // Get 3D point from mouse position
+  const getMousePoint = useCallback(
+    (mousePosition, targetZ) => {
+      // Update the raycaster with the mouse position
+      raycaster.setFromCamera(mousePosition, camera)
+
+      // Update the drag plane to be at the target Z position
+      dragPlane.constant = -targetZ
+
+      // Get intersection point
+      const intersectionPoint = new Vector3()
+      raycaster.ray.intersectPlane(dragPlane, intersectionPoint)
+
+      return intersectionPoint
+    },
+    [raycaster, camera, dragPlane]
+  )
+
+  // Handle drag start
+  const handleDragStart = useCallback(
+    (event) => {
+      event.stopPropagation()
+      setIsDragging(true)
+      setCurrentVelocity(0)
+      setMaxVelocityReached(false)
+      document.body.style.cursor = 'grabbing'
+      dragStartTime.current = Date.now()
+      lastMousePosition.current = { x: mouse.x, y: mouse.y }
+
+      if (root.current) {
+        // Get current bone position
+        const bonePosition = vec3(root.current.translation())
+        lastPosition.current.set(bonePosition.x, bonePosition.y, bonePosition.z)
+
+        // Get the click point in 3D space
+        const clickPoint = getMousePoint(mouse, bonePosition.z)
+
+        // Calculate offset from click point to bone center
+        dragOffset.set(bonePosition.x - clickPoint.x, bonePosition.y - clickPoint.y, 0)
+
+        // Set the rigid body to kinematic during dragging
+        root.current.setBodyType(1) // 1 = kinematic
+      }
+    },
+    [mouse, getMousePoint, dragOffset]
+  )
+
+  // Handle drag end
+  const handleDragEnd = useCallback(
+    (event) => {
+      if (isDragging) {
+        setIsDragging(false)
+        setMaxVelocityReached(false)
+        document.body.style.cursor = hovered ? 'grab' : 'auto'
+
+        if (root.current) {
+          // If not already dynamic (from max velocity), set it now
+          if (root.current.bodyType() !== 0) {
+            // Calculate velocity based on recent movement
+            const velocity = lastVelocity.clone()
+
+            // Set the rigid body back to dynamic
+            root.current.setBodyType(0) // 0 = dynamic
+
+            // Apply the velocity from dragging
+            if (velocity.length() > 0.1) {
+              root.current.setLinvel(
+                {
+                  x: velocity.x * VELOCITY_AMPLIFIER,
+                  y: velocity.y * VELOCITY_AMPLIFIER,
+                  z: 0
+                },
+                true
+              )
+            }
+          }
+        }
+      }
+    },
+    [isDragging, hovered, lastVelocity]
+  )
+
+  // Add global event listeners to ensure drag continues even if pointer leaves the object
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (isDragging) {
+        handleDragEnd()
+      }
+    }
+
+    const handleGlobalMouseMove = (e) => {
+      if (isDragging) {
+        // Update last mouse position for velocity calculation
+        lastMousePosition.current = {
+          x: (e.clientX / window.innerWidth) * 2 - 1,
+          y: -(e.clientY / window.innerHeight) * 2 + 1
+        }
+      }
+    }
+
+    window.addEventListener('mouseup', handleGlobalMouseUp)
+    window.addEventListener('mousemove', handleGlobalMouseMove)
+
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalMouseUp)
+      window.removeEventListener('mousemove', handleGlobalMouseMove)
+    }
+  }, [isDragging, handleDragEnd])
+
+  // Update position during dragging
+  useFrame((state, delta) => {
+    if (!root.current) return
+
+    if (isDragging && !maxVelocityReached) {
+      // Store the current position before updating
+      const currentPosition = vec3(root.current.translation())
+      const currentPos = new Vector3(currentPosition.x, currentPosition.y, currentPosition.z)
+
+      // Use the mouse from state which is continuously updated
+      const currentMouse = { x: state.mouse.x, y: state.mouse.y }
+
+      // Direct dragging - update position immediately based on mouse
+      const mousePoint = getMousePoint(currentMouse, currentPosition.z)
+
+      // Apply the offset to get the new position
+      const newPosition = {
+        x: mousePoint.x + dragOffset.x,
+        y: mousePoint.y + dragOffset.y,
+        z: currentPosition.z
+      }
+
+      // Calculate velocity for when we release
+      const newPos = new Vector3(newPosition.x, newPosition.y, newPosition.z)
+      const frameVelocity = newPos.clone().sub(currentPos).divideScalar(delta)
+
+      // Smooth the velocity using exponential moving average
+      lastVelocity.lerp(frameVelocity, VELOCITY_SMOOTHING)
+
+      // Calculate current velocity magnitude
+      const velocityMagnitude = lastVelocity.length()
+      setCurrentVelocity(velocityMagnitude)
+
+      // Check if we've reached max velocity
+      if (velocityMagnitude >= MAX_VELOCITY) {
+        // We've reached max velocity - switch to dynamic mode
+        setMaxVelocityReached(true)
+
+        // Set the rigid body to dynamic
+        root.current.setBodyType(0) // 0 = dynamic
+
+        // Apply the capped velocity
+        const cappedVelocity = lastVelocity.clone().normalize().multiplyScalar(MAX_VELOCITY)
+        root.current.setLinvel(
+          {
+            x: cappedVelocity.x,
+            y: cappedVelocity.y,
+            z: 0
+          },
+          true
+        )
+
+        // We'll continue dragging visually, but the physics will take over
+      } else {
+        // Update position directly
+        root.current.setTranslation(newPosition, true)
+      }
+
+      // Update last mouse position
+      lastMousePosition.current = currentMouse
+      lastPosition.current.copy(currentPos)
+    }
+  })
+
   return (
     <group position={position}>
       {/* Root/Bone (main body) */}
@@ -144,12 +347,32 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
         <CuboidCollider args={dimensions.rootDimensions} />
         {debug && (
           <>
-            <BoneLabel text="Bone" position={[0, 0.2, 0]} />
+            <BoneLabel
+              text={
+                isDragging
+                  ? maxVelocityReached
+                    ? 'Max Velocity!'
+                    : `Dragging: ${Math.min(100, Math.round((currentVelocity / MAX_VELOCITY) * 100))}%`
+                  : 'Dynamic'
+              }
+              position={[0, 0.2, 0]}
+            />
           </>
         )}
         <group position={offsets.boneOffset}>
-          <primitive object={nodes.Bone} />
+          <primitive
+            object={nodes.Bone}
+            onPointerDown={handleDragStart}
+            onPointerUp={handleDragEnd}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
+          />
         </group>
+        {/* Add an invisible mesh that will handle the events */}
+        <mesh onPointerDown={handleDragStart} onPointerUp={handleDragEnd} onPointerOver={handlePointerOver} onPointerOut={handlePointerOut} visible={false}>
+          <boxGeometry args={[dimensions.rootDimensions[0], dimensions.rootDimensions[1], dimensions.rootDimensions[2]]} />
+          <meshStandardMaterial transparent opacity={0} />
+        </mesh>
       </RigidBody>
 
       {/* Left Arm */}
