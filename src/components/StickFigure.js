@@ -47,7 +47,7 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
     rootDimensions: [0.25, 0.25, 0.25],
     headDimensions: [0.073831, 0.73831, 0.073831],
     armDimensions: forearmsEnabled ? [0.13, 0.1, 0.13] : [0.4, 0.2, 0.2],
-    legDimensions: [0.2, 0.4, 0.2],
+    legDimensions: [0.2, 0.2, 0.2],
     forearmDimensions: [0.1, 0.1, 0.1],
     handDimensions: [0.1, 0.1, 0.1]
   }
@@ -58,8 +58,8 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
     headPosition: [0, 0.859261, 0],
     armlPosition: [0.8, 1.13, 0],
     armrPosition: [-0.8, 1.13, 0],
-    leglPosition: [0.25, 0.3, 0],
-    legrPosition: [-0.25, 0.3, 0],
+    leglPosition: [0.25, 0.5, 0],
+    legrPosition: [-0.25, 0.5, 0],
     forearmlPosition: [0.65, 1.123411, -0.16],
     forearmrPosition: [-0.65, 1.123411, -0.16],
     handlPosition: [1.0, 1.123411, -0.2],
