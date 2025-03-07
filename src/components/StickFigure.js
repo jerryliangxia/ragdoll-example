@@ -47,7 +47,7 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
   // Static dimensions
   const dimensions = {
     rootDimensions: [0.25, 0.25, 0.25],
-    headDimensions: [0.073831, 0.73831, 0.073831],
+    headDimensions: [0.3, 0.2, 0.3],
     armDimensions: forearmsEnabled ? [0.1, 0.1, 0.1] : [0.4, 0.2, 0.2],
     legDimensions: [0.2, 0.2, 0.2],
     forearmDimensions: [0.1, 0.1, 0.1],
@@ -57,7 +57,7 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
   // Static body positions
   const bodyPositions = {
     rootPosition: [0, 1, 0],
-    headPosition: [0, 0.859261, 0],
+    headPosition: [0, 1.6, 0],
     armlPosition: forearmsEnabled ? [0.4, 1.13, 0] : [0.8, 1.13, 0],
     armrPosition: forearmsEnabled ? [-0.4, 1.13, 0] : [-0.8, 1.13, 0],
     leglPosition: [0.25, 0.5, 0],
@@ -70,6 +70,7 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
 
   // Static offsets
   const offsets = {
+    headOffset: [0, -1.2, 0],
     boneOffset: [0, -1, 0],
     armlOffset: forearmsEnabled ? [-0.3, -0.75, 0] : [-0.7, -0.75, 0],
     armrOffset: forearmsEnabled ? [0.3, -0.75, 0] : [0.7, -0.75, 0],
@@ -110,19 +111,34 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
   const forearmR = useRef(null)
   const handL = useRef(null)
   const handR = useRef(null)
+  const head = useRef(null)
 
   // Calculate relative positions
   const getRelativePosition = (pos1, pos2) => [(pos1[0] - pos2[0]) / 2, (pos1[1] - pos2[1]) / 2, (pos1[2] - pos2[2]) / 2]
 
-  // useSphericalJoint(A,B,(B,A),(A,B))
-  useSphericalJoint(root, legL, [
+  // Create head joint
+  useFixedJoint(root, head, [
+    getRelativePosition(bodyPositions.headPosition, bodyPositions.rootPosition),
+    [0, 0, 0, 1],
+    getRelativePosition(bodyPositions.rootPosition, bodyPositions.headPosition),
+    [0, 0, 0, 1]
+  ])
+
+  // Create fixed joints for legs
+  useFixedJoint(root, legL, [
     getRelativePosition(bodyPositions.leglPosition, bodyPositions.rootPosition),
-    getRelativePosition(bodyPositions.rootPosition, bodyPositions.leglPosition)
+    [0, 0, 0, 1],
+    getRelativePosition(bodyPositions.rootPosition, bodyPositions.leglPosition),
+    [0, 0, 0, 1]
   ])
-  useSphericalJoint(root, legR, [
+  useFixedJoint(root, legR, [
     getRelativePosition(bodyPositions.legrPosition, bodyPositions.rootPosition),
-    getRelativePosition(bodyPositions.rootPosition, bodyPositions.legrPosition)
+    [0, 0, 0, 1],
+    getRelativePosition(bodyPositions.rootPosition, bodyPositions.legrPosition),
+    [0, 0, 0, 1]
   ])
+
+  // Arms remain spherical joints for movement
   useSphericalJoint(root, armL, [
     getRelativePosition(bodyPositions.armlPosition, bodyPositions.rootPosition),
     getRelativePosition(bodyPositions.rootPosition, bodyPositions.armlPosition)
@@ -211,6 +227,7 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
 
       const currentPart = {
         root: root.current,
+        head: head.current,
         armL: armL.current,
         armR: armR.current,
         legL: legL.current,
@@ -244,6 +261,7 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
 
         const currentPart = {
           root: root.current,
+          head: head.current,
           armL: armL.current,
           armR: armR.current,
           legL: legL.current,
@@ -312,6 +330,7 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
 
     const currentPart = {
       root: root.current,
+      head: head.current,
       armL: armL.current,
       armR: armR.current,
       legL: legL.current,
@@ -393,6 +412,7 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
       // Reset all body positions and velocities
       const bodyMap = {
         root: { ref: root.current, posKey: 'rootPosition' },
+        head: { ref: head.current, posKey: 'headPosition' },
         armL: { ref: armL.current, posKey: 'armlPosition' },
         armR: { ref: armR.current, posKey: 'armrPosition' },
         legL: { ref: legL.current, posKey: 'leglPosition' },
@@ -458,6 +478,35 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
           onPointerOut={handlePointerOut}
           visible={false}>
           <boxGeometry args={dimensions.rootDimensions} />
+          <meshStandardMaterial transparent opacity={0} />
+        </mesh>
+      </RigidBody>
+
+      {/* Head */}
+      <RigidBody ref={head} position={bodyPositions.headPosition} type={typeRigidBody} linearDamping={2} angularDamping={3} friction={1}>
+        <CuboidCollider args={dimensions.headDimensions} />
+        {debug && draggedPart === 'head' && (
+          <BoneLabel
+            text={maxVelocityReached ? 'Max Velocity!' : `Dragging: ${Math.min(100, Math.round((currentVelocity / MAX_VELOCITY) * 100))}%`}
+            position={[0, 0.2, 0]}
+          />
+        )}
+        <group position={offsets.headOffset}>
+          <primitive
+            object={nodes.Head}
+            onPointerDown={(e) => handleDragStart(e, 'head')}
+            onPointerUp={handleDragEnd}
+            onPointerOver={handlePointerOver}
+            onPointerOut={handlePointerOut}
+          />
+        </group>
+        <mesh
+          onPointerDown={(e) => handleDragStart(e, 'head')}
+          onPointerUp={handleDragEnd}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+          visible={false}>
+          <boxGeometry args={dimensions.headDimensions} />
           <meshStandardMaterial transparent opacity={0} />
         </mesh>
       </RigidBody>
