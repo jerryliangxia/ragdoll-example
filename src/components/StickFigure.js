@@ -26,7 +26,7 @@ function BoneLabel({ text, position }) {
   )
 }
 
-export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axeVisible = false, forearmsEnabled = true, isShiftPressed = false }, ref) => {
+export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axeVisible = false, forearmsEnabled = true }, ref) => {
   const { scene } = useGLTF('/pepe.glb')
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
   const { nodes } = useGraph(clone)
@@ -196,26 +196,19 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
 
   // Handle pointer over for cursor style
   const handlePointerOver = useCallback(() => {
-    if (!isShiftPressed) {
-      setHovered(true)
-      document.body.style.cursor = 'grab'
-    }
-  }, [isShiftPressed])
+    setHovered(true)
+    document.body.style.cursor = 'grab'
+  }, [])
 
   // Handle pointer out for cursor style
   const handlePointerOut = useCallback(() => {
-    if (!isShiftPressed) {
-      setHovered(false)
-      document.body.style.cursor = 'auto'
-    }
-  }, [isShiftPressed])
+    setHovered(false)
+    document.body.style.cursor = 'auto'
+  }, [])
 
   // Handle drag start for any part
   const handleDragStart = useCallback(
     (event, part) => {
-      // Don't start drag if shift is pressed
-      if (isShiftPressed) return
-
       event.stopPropagation()
       setIsDragging(true)
       setDraggedPart(part)
@@ -249,7 +242,7 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
         currentPart.setBodyType(1) // 1 = kinematic
       }
     },
-    [mouse, getMousePoint, dragOffset, isShiftPressed]
+    [mouse, getMousePoint, dragOffset]
   )
 
   // Handle drag end for any part
@@ -347,7 +340,7 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
       // Apply the offset to get the target position
       const targetPosition = {
         x: mousePoint.x + dragOffset.x,
-        y: mousePoint.y + dragOffset.y,
+        y: Math.max(-1, mousePoint.y + dragOffset.y), // Prevent dragging below y=0
         z: currentPart.translation().z
       }
 

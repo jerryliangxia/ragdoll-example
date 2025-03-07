@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { Box, Environment, OrbitControls, ContactShadows, Sphere } from '@react-three/drei'
 import { Physics, RigidBody, useSphericalJoint, MeshCollider, CuboidCollider } from '@react-three/rapier'
-import { Suspense, useRef, useEffect, useState } from 'react'
+import { Suspense, useRef } from 'react'
 import { Rope } from './components/Rope'
 import { StickFigure } from './components/StickFigure'
 import './styles.css'
@@ -35,59 +35,24 @@ function HangingThing({ position }) {
   )
 }
 
-function Scene() {
-  const pepeRef = useRef()
-  const [isShiftPressed, setIsShiftPressed] = useState(false)
+function Scene({ pepeRef }) {
   const controlsRef = useRef()
-
-  const handleReset = () => {
-    if (pepeRef.current) {
-      pepeRef.current.reset()
-    }
-  }
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Shift') {
-        setIsShiftPressed(true)
-        if (controlsRef.current) {
-          controlsRef.current.enabled = true
-        }
-      }
-    }
-
-    const handleKeyUp = (e) => {
-      if (e.key === 'Shift') {
-        setIsShiftPressed(false)
-        if (controlsRef.current) {
-          controlsRef.current.enabled = false
-        }
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-
-    const scene = document.querySelector('canvas')?.parentElement
-    if (scene) {
-      scene.addEventListener('reset-pepe', handleReset)
-    }
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-      if (scene) {
-        scene.removeEventListener('reset-pepe', handleReset)
-      }
-    }
-  }, [])
 
   return (
     <group>
-      <OrbitControls ref={controlsRef} enabled={isShiftPressed} enablePan={true} enableZoom={true} enableRotate={true} />
+      <OrbitControls ref={controlsRef} enableZoom={true} enablePan={false} enableRotate={false} />
+
+      <HangingThing position={[-2, 3.5, 0]} />
+      <HangingThing position={[-5, 3.5, 0]} />
+      <HangingThing position={[-7, 3.5, 0]} />
+      <HangingThing position={[2, 3.5, 0]} />
+      <HangingThing position={[5, 3.5, 0]} />
+      <HangingThing position={[7, 3.5, 0]} />
+
+      <Rope length={10} />
 
       {/* Just one stick figure */}
-      <StickFigure ref={pepeRef} position={[0, 1, 0]} forearmsEnabled={false} isShiftPressed={isShiftPressed} />
+      <StickFigure ref={pepeRef} position={[0, 1, 0]} forearmsEnabled={false} />
 
       {/* Floor */}
       <CuboidCollider position={[0, -2.5, 0]} args={[15, 1, 10]} />
@@ -113,14 +78,14 @@ function Scene() {
 }
 
 export default function App() {
+  const pepeRef = useRef()
+
   return (
     <div className="App">
       <button
         onClick={() => {
-          const scene = document.querySelector('canvas')?.parentElement
-          if (scene) {
-            const event = new CustomEvent('reset-pepe')
-            scene.dispatchEvent(event)
+          if (pepeRef.current) {
+            pepeRef.current.reset()
           }
         }}
         style={{
@@ -162,7 +127,7 @@ export default function App() {
           <ambientLight intensity={0.5} />
 
           <Physics debug>
-            <Scene />
+            <Scene pepeRef={pepeRef} />
           </Physics>
         </Canvas>
       </Suspense>
