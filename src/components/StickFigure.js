@@ -8,6 +8,8 @@ import { Vector3, BoxGeometry, MeshStandardMaterial, Raycaster, Plane } from 'th
 // for debug
 const typeRigidBody = 'dynamic'
 const isMeshVisible = true
+// const typeRigidBody = 'fixed'
+// const isMeshVisible = false
 
 // Physics constants
 const MAX_VELOCITY = 50 // Increased maximum velocity for faster movements
@@ -24,7 +26,7 @@ function BoneLabel({ text, position }) {
   )
 }
 
-export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axeVisible = false, forearmsEnabled = false, isShiftPressed = false }, ref) => {
+export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axeVisible = false, forearmsEnabled = true, isShiftPressed = false }, ref) => {
   const { scene } = useGLTF('/pepe.glb')
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene])
   const { nodes } = useGraph(clone)
@@ -46,7 +48,7 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
   const dimensions = {
     rootDimensions: [0.25, 0.25, 0.25],
     headDimensions: [0.073831, 0.73831, 0.073831],
-    armDimensions: forearmsEnabled ? [0.13, 0.1, 0.13] : [0.4, 0.2, 0.2],
+    armDimensions: forearmsEnabled ? [0.1, 0.1, 0.1] : [0.4, 0.2, 0.2],
     legDimensions: [0.2, 0.2, 0.2],
     forearmDimensions: [0.1, 0.1, 0.1],
     handDimensions: [0.1, 0.1, 0.1]
@@ -56,12 +58,12 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
   const bodyPositions = {
     rootPosition: [0, 1, 0],
     headPosition: [0, 0.859261, 0],
-    armlPosition: [0.8, 1.13, 0],
-    armrPosition: [-0.8, 1.13, 0],
+    armlPosition: forearmsEnabled ? [0.4, 1.13, 0] : [0.8, 1.13, 0],
+    armrPosition: forearmsEnabled ? [-0.4, 1.13, 0] : [-0.8, 1.13, 0],
     leglPosition: [0.25, 0.5, 0],
     legrPosition: [-0.25, 0.5, 0],
-    forearmlPosition: [0.65, 1.123411, -0.16],
-    forearmrPosition: [-0.65, 1.123411, -0.16],
+    forearmlPosition: [0.7, 1.123411, -0.16],
+    forearmrPosition: [-0.7, 1.123411, -0.16],
     handlPosition: [1.0, 1.123411, -0.2],
     handrPosition: [-1.0, 1.123411, -0.2]
   }
@@ -73,10 +75,10 @@ export const StickFigure = forwardRef(({ position = [0, 0, 0], debug = true, axe
     armrOffset: forearmsEnabled ? [0.3, -0.75, 0] : [0.7, -0.75, 0],
     leglOffset: [-0.25, -0.3, 0],
     legrOffset: [0.25, -0.3, 0],
-    forearmlOffset: [0.25, -0.27, 0],
-    forearmrOffset: [-0.25, -0.27, 0],
-    handlOffset: [0.25, -0.3, 0],
-    handrOffset: [-0.25, -0.3, 0]
+    forearmlOffset: [0.3, -0.27, 0],
+    forearmrOffset: [-0.3, -0.27, 0],
+    handlOffset: [0.3, -0.3, 0],
+    handrOffset: [-0.3, -0.3, 0]
   }
 
   // Fixed rotations for limbs
