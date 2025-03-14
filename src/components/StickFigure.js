@@ -184,7 +184,7 @@ export function StickFigure({ position = [0, 0, 0], debug = true, axeVisible = f
         </group>
       </RigidBody>
 
-      {/* Forearms and Hands only render if enabled */}
+      {/* Forearms and Hands only render if are enabled */}
       {forearmsEnabled && (
         <>
           {/* Left Forearm */}
