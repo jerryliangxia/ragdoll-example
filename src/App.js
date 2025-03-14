@@ -35,9 +35,13 @@ function HangingThing({ position }) {
   )
 }
 
-function Scene() {
+function Scene({ pepeRef }) {
+  const controlsRef = useRef()
+
   return (
     <group>
+      <OrbitControls ref={controlsRef} enableZoom={true} enablePan={false} enableRotate={false} />
+
       <HangingThing position={[-2, 3.5, 0]} />
       <HangingThing position={[-5, 3.5, 0]} />
       <HangingThing position={[-7, 3.5, 0]} />
@@ -47,20 +51,8 @@ function Scene() {
 
       <Rope length={10} />
 
-      {/* Spawn 10 stick figures in a grid pattern */}
-      {/* First row - without forearms */}
-      <StickFigure position={[-6, 10, -4]} />
-      <StickFigure position={[-3, 10, -4]} />
-      <StickFigure position={[0, 10, -4]} />
-      <StickFigure position={[3, 10, -4]} />
-      <StickFigure position={[6, 10, -4]} />
-
-      {/* Second row - with forearms */}
-      <StickFigure position={[-6, 10, 4]} />
-      <StickFigure position={[-3, 10, 4]} />
-      <StickFigure position={[0, 10, 4]} />
-      <StickFigure position={[3, 10, 4]} />
-      <StickFigure position={[6, 10, 4]} />
+      {/* Just one stick figure */}
+      <StickFigure ref={pepeRef} position={[0, 1, 0]} forearmsEnabled={false} />
 
       {/* Floor */}
       <CuboidCollider position={[0, -2.5, 0]} args={[15, 1, 10]} />
@@ -81,15 +73,37 @@ function Scene() {
       <CuboidCollider position={[0, 18, 0]} args={[15, 1, 10]} />
 
       <ContactShadows scale={20} blur={0.4} opacity={0.2} position={[-0, -1.5, 0]} />
-
-      <OrbitControls minDistance={10} maxDistance={20} minPolarAngle={0} maxPolarAngle={Math.PI / 1.5} enablePan={false} />
     </group>
   )
 }
 
 export default function App() {
+  const pepeRef = useRef()
+
   return (
     <div className="App">
+      <button
+        onClick={() => {
+          if (pepeRef.current) {
+            pepeRef.current.reset()
+          }
+        }}
+        style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          padding: '10px 20px',
+          fontSize: '16px',
+          backgroundColor: '#4CAF50',
+          color: 'white',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer',
+          zIndex: 1000
+        }}>
+        Reset Pepe
+      </button>
       <Suspense fallback={null}>
         <Canvas
           style={{
@@ -101,7 +115,7 @@ export default function App() {
           }}
           shadows
           camera={{
-            position: [-8, 4, 8],
+            position: [0, 5, 15],
             fov: 50,
             near: 0.1,
             far: 1000
@@ -113,7 +127,7 @@ export default function App() {
           <ambientLight intensity={0.5} />
 
           <Physics debug>
-            <Scene />
+            <Scene pepeRef={pepeRef} />
           </Physics>
         </Canvas>
       </Suspense>
